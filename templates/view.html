@@ -90,9 +90,8 @@
                 resizeEditor();
             }
 
-
-
-            $("#savePage").on('click', function(){
+            function savePage() {
+                console.log("savePage");
                 $.ajax({
                     method: "POST",
                     url: window.location.pathname,
@@ -100,17 +99,20 @@
                         "content": editor.getValue(),
                         "mode": $('#mode').val()
                     }),
-                    // data: editor.getValue(),
                     success: function(data){
-                        if (data.status && "ok" == data.status) {
-                            return window.location.reload();
-                        }
+                        // if (data.status && "ok" == data.status) {
+                        //     return window.location.reload();
+                        // }
                         console.log(data);
                     }
                 })
                 .fail(function(err){
                     console.log(err)
                 });
+            }
+
+            $("#savePage").on('click', function(){
+                savePage();
             });
 
             $("#deletePage").on('click', function(){
@@ -128,6 +130,15 @@
                     console.log(err)
                 });
             });
+
+            var updatePageTimeout;
+            editor.on("changes", function(e){
+                clearTimeout(updatePageTimeout);
+                updatePageTimeout = setTimeout(function(){
+                    savePage();
+                }, 2000);
+            });
+
 
         </script>
 
