@@ -60,7 +60,7 @@ func (self *WikiEngine) ViewHandler(w http.ResponseWriter, r *http.Request) {
 		seed := RandomStringOfLength(20)
 		// 302 http status prevents browser from caching
 		// and serving same results.
-		http.Redirect(w, r, fmt.Sprintf("/%s", seed), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/%s?mode=edit", seed), http.StatusFound)
 		return
 	}
 
