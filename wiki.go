@@ -1,110 +1,176 @@
 package main
 
 import (
-	// "errors"
+	"errors"
 	"fmt"
-	"github.com/russross/blackfriday"
 	"html/template"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"strings"
-)
+	"strconv"
 
-const (
-	DEFAULT_WIKI_DIRECTORY    string = "wiki"
-	DEFAULT_CONTENT_DIRECTORY string = "content"
+	"github.com/sjsafranek/DiffStore"
 )
 
 var (
-	WIKI_DIRECTORY    string             = DEFAULT_WIKI_DIRECTORY
-	CONTENT_DIRECTORY string             = DEFAULT_CONTENT_DIRECTORY
-	TEMPLATES         *template.Template = template.Must(template.ParseFiles("templates/view.html"))
+	TEMPLATES *template.Template = template.Must(template.ParseFiles("templates/view.html"))
 )
 
-type Page struct {
-	Title string
-	Body  template.HTML
-	Raw   string
+type WikiEngine struct {
+	db Database
 }
-
-func getUrlForPage(directory, filename string) string {
-	filename = strings.Replace(filename, ".json", "", -1)
-	path := fmt.Sprintf("%v/%v", directory, filename)
-	path = strings.Replace(path, WIKI_DIRECTORY, "", -1)
-	return path
-}
-
-type WikiEngine struct{}
 
 func (self *WikiEngine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	self.ViewHandler(w, r)
 }
 
-func (self *WikiEngine) getFilename(page string) string {
-	return fmt.Sprintf("%v/%v.json", WIKI_DIRECTORY, page)
-}
-
-func (self *WikiEngine) loadPage(page string) (*Page, error) {
-	filename := self.getFilename(page)
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
+func (self *WikiEngine) getPageAtVersion(page string, version int) (*Page, error) {
+	var ddata diffstore.DiffStore
+	raw, err := self.db.Get("pages", page)
+	if nil != err {
+		logger.Warn(err)
+		logger.Debug(page)
+		ddata = diffstore.New()
+	} else {
+		ddata.Decode([]byte(raw))
 	}
 
-	logger.Info(string(body))
+	if ddata.Length() <= version || -1 == version {
+		logger.Debugf("Fetching current state: %v", page)
+		return &Page{
+			Title:           page,
+			Data:            ddata.CurrentValue,
+			CurrentVersion:  ddata.Length(),
+			SelectedVersion: ddata.Length(),
+		}, nil
+	}
 
+	logger.Debugf("Fetching previous state: %v", page)
+	previous, err := ddata.GetPreviousByIndex(version)
 	return &Page{
-		Title: page,
-		Body:  template.HTML(blackfriday.MarkdownCommon([]byte(body))),
-		Raw:   string(body),
-	}, nil
+		Title:           page,
+		Data:            previous,
+		CurrentVersion:  ddata.Length(),
+		SelectedVersion: version,
+	}, err
 }
 
 func (self *WikiEngine) ViewHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	// redirect to random hash
+	if "/" == r.URL.Path {
+		seed := RandomStringOfLength(20)
+		// 302 http status prevents browser from caching
+		// and serving same results.
+		http.Redirect(w, r, fmt.Sprintf("/%s", seed), http.StatusFound)
+		return
+	}
 
+	switch {
+	case "GET" == r.Method:
+		self.httpGETHandler(w, r)
+	case "POST" == r.Method:
+		self.httpPOSTHandler(w, r)
+	case "DELETE" == r.Method:
+		self.httpDELETEHandler(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (self *WikiEngine) getPageNameFromRequest(r *http.Request) string {
 	page := r.URL.Path[1:]
 	if len(page) == 0 {
 		page = "index"
 	}
-
-	if "POST" == r.Method {
-		err := self.savePage(page, r)
-		if err != nil {
-			logger.Error(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, string(`{"status":"ok"}`))
-		return
-	} else if "DELETE" == r.Method {
-		err := self.deletePage(page)
-		if err != nil {
-			logger.Error(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, string(`{"status":"ok"}`))
-		return
-	}
-
-	p, err := self.loadPage(page)
-	if err != nil {
-		self.renderTemplate(w, "view", &Page{Title: page})
-		return
-	}
-
-	self.renderTemplate(w, "view", p)
+	return page
 }
 
-func (self *WikiEngine) deletePage(page string) error {
-	// split file path into parts
-	path := fmt.Sprintf("%s/%s.json", WIKI_DIRECTORY, page)
-	// delete file
-	return os.Remove(path)
+func (self *WikiEngine) writeResponse(w http.ResponseWriter, status_code int, response string) {
+	w.WriteHeader(status_code)
+	fmt.Fprintln(w, response)
+}
+
+func (self *WikiEngine) writeApiErrorResponse(w http.ResponseWriter, status_code int, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	self.writeResponse(w, status_code, fmt.Sprintf(`{"status":"error", "message": "%v"}`, err.Error()))
+}
+
+func (self *WikiEngine) writeApiSuccessResponse(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	self.writeResponse(w, http.StatusOK, `{"status":"ok"}`)
+}
+
+func (self *WikiEngine) httpGETHandler(w http.ResponseWriter, r *http.Request) {
+	page := self.getPageNameFromRequest(r)
+
+	version := -1
+	version_param := r.URL.Query().Get("version")
+	if "" != version_param {
+		i, err := strconv.ParseInt(version_param, 10, 64)
+		if nil != err {
+			self.writeApiErrorResponse(w, http.StatusBadRequest, errors.New("version must be integer"))
+			return
+		}
+		version = int(i)
+	}
+
+	p, err := self.getPageAtVersion(page, version)
+	if nil != err {
+		self.writeApiErrorResponse(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	mode := r.URL.Query().Get("mode")
+
+	switch {
+
+	case "edit" == mode:
+		if nil != err {
+			self.renderTemplate(w, "view", &Page{Title: page})
+			return
+		}
+
+		self.renderTemplate(w, "view", p)
+
+	case "" == mode:
+		fallthrough
+
+	case "view" == mode:
+		data, err := p.Unmarshal()
+		if nil != err {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, data)
+
+	default:
+		self.writeApiErrorResponse(w, http.StatusBadRequest, errors.New("Unsupported mode type"))
+	}
+}
+
+func (self *WikiEngine) httpPOSTHandler(w http.ResponseWriter, r *http.Request) {
+	page := self.getPageNameFromRequest(r)
+
+	err := self.savePage(page, r)
+	if err != nil {
+		logger.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	self.writeApiSuccessResponse(w)
+}
+
+func (self *WikiEngine) httpDELETEHandler(w http.ResponseWriter, r *http.Request) {
+	page := self.getPageNameFromRequest(r)
+
+	err := self.db.Remove("pages", page)
+	if err != nil {
+		logger.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	self.writeApiSuccessResponse(w)
 }
 
 func (self *WikiEngine) savePage(page string, r *http.Request) error {
@@ -113,24 +179,22 @@ func (self *WikiEngine) savePage(page string, r *http.Request) error {
 		return err
 	}
 
-	// split file path into parts
-	parts := strings.Split(page, "/")
+	var ddata diffstore.DiffStore
+	raw, err := self.db.Get("pages", page)
+	if nil != err {
+		logger.Warn(err)
+		ddata = diffstore.New()
+	} else {
+		ddata.Decode([]byte(raw))
+	}
 
-	// create directory tree from path
-	path := fmt.Sprintf("%s/%s", WIKI_DIRECTORY, strings.Join(parts[:len(parts)-1], "/"))
-	err = os.MkdirAll(path, os.ModePerm)
-	if err != nil {
+	ddata.Update(string(body))
+	enc, err := ddata.Encode()
+	if nil != err {
 		return err
 	}
 
-	// write data to file
-	out_file := fmt.Sprintf("%s/%s.json", WIKI_DIRECTORY, strings.Join(parts, "/"))
-	err = ioutil.WriteFile(out_file, []byte(body), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return self.db.Set("pages", page, string(enc))
 }
 
 func (self *WikiEngine) renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {

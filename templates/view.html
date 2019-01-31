@@ -9,6 +9,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
+        <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" />
+
         <!-- Bootstrap -->
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/css/bootstrap.min.css" integrity="sha384-Smlep5jCw/wG7hdkwQ/Z5nLIefveQRIY9nfy6xoR1uRYBtpZgI6339F5dgvm/e9B" crossorigin="anonymous">
         <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -47,6 +49,7 @@
     <body id="page-top" class="bg-black text-white">
 
         <textarea id="code"></textarea>
+
         <select id="mode">
             <option value="javascript">javascript</option>
             <option value="go">go</option>
@@ -55,6 +58,9 @@
             <option value="shell">shell</option>
             <option value="sql">sql</option>
         </select>
+
+        <select id="version"></select>
+
         <div class="controls">
             <button id="savePage" class="btn btn-info">Submit</button>
             <button id="deletePage" class="btn btn-danger">Delete</button>
@@ -62,12 +68,36 @@
 
         <script>
 
-            var raw = {{.Raw}};
-            if (raw) {
-                var page = JSON.parse(raw);
+        // source data
+            var selected_version = {{.SelectedVersion}};
+            var current_version = {{.CurrentVersion}};
+            var data = {{.Data}};
+            if (data) {
+                var page = JSON.parse(data);
                 $("#code").val(page.content);
                 $("#mode").val(page.mode);
             }
+        //.end
+
+            $("#version")
+                .append(
+                    (function(){
+                        var options = [];
+                        for (var i=0; i<current_version+1; i++) {
+                            options.push(
+                                $("<option>", {
+                                    value:i,
+                                    selected: i == selected_version
+                                }).text(i)
+                            );
+                        }
+                        return options;
+                    })()
+                )
+                .on("change", function(e){
+                    var url = window.location.pathname += "?mode=edit&version=" + this.value;
+                    window.location.href = url;
+                });
 
             var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
                             lineNumbers: true,
