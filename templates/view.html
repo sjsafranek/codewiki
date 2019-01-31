@@ -14,7 +14,7 @@
         <!-- Bootstrap -->
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/css/bootstrap.min.css" integrity="sha384-Smlep5jCw/wG7hdkwQ/Z5nLIefveQRIY9nfy6xoR1uRYBtpZgI6339F5dgvm/e9B" crossorigin="anonymous">
         <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script> -->
         <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em" crossorigin="anonymous"></script>
 
         <!-- jQuery -->
@@ -38,9 +38,8 @@
             body {
                 padding: 20px;
             }
-
             .controls {
-                float: right;
+                padding-top: 8px;
             }
         </style>
 
@@ -50,31 +49,41 @@
 
         <textarea id="code"></textarea>
 
+        <div class="form-row controls">
 
-<div class="form-row">
+            <div class="input-group col-md-4">
+                <div class="input-group-prepend">
+                    <div class="input-group-text" for="mode">Langauge</div>
+                </div>
+                <select class="form-control custom-select" id="mode">
+                    <option value="javascript">javascript</option>
+                    <option value="go">go</option>
+                    <option value="markdown">markdown</option>
+                    <option value="python">python</option>
+                    <option value="shell">shell</option>
+                    <option value="sql">sql</option>
+                </select>
+            </div>
 
-    <div class="col-md-4">
-        <!-- <div class="form-group col-md-4"> -->
-            <select id="mode" class="form-control">
-                <option value="javascript">javascript</option>
-                <option value="go">go</option>
-                <option value="markdown">markdown</option>
-                <option value="python">python</option>
-                <option value="shell">shell</option>
-                <option value="sql">sql</option>
-            <!-- </select> -->
-    </div>
+            <div class="input-group col-md-3">
+                <div class="input-group-prepend">
+                    <div class="input-group-text" for="version">Version</div>
+                </div>
+                <select class="form-control custom-select" id="version">
+                </select>
+            </div>
 
-    <div class="col-md-4">
-        <select id="version" class="form-control"></select>
-    </div>
+            <div class="input-group col-md-3">
+            </div>
 
-</div>
+            <div class="input-group col-md-1">
+                <button id="savePage" class="btn btn-info">Submit</button>
+            </div>
 
+            <div class="input-group col-md-1">
+                <button id="deletePage" class="btn btn-danger">Delete</button>
+            </div>
 
-        <div class="controls">
-            <button id="savePage" class="btn btn-info">Submit</button>
-            <button id="deletePage" class="btn btn-danger">Delete</button>
         </div>
 
 
