@@ -50,7 +50,8 @@
 
         <textarea id="code"></textarea>
 
-        <select id="mode" class="form-group">
+    <div class="form-group mb-2">
+        <select id="mode" class="form-control">
             <option value="javascript">javascript</option>
             <option value="go">go</option>
             <option value="markdown">markdown</option>
@@ -58,8 +59,11 @@
             <option value="shell">shell</option>
             <option value="sql">sql</option>
         </select>
+    </div>
 
-        <select id="version" class="form-group"></select>
+    <div class="form-group mb-2">
+        <select id="version" class="form-control"></select>
+    </div>
 
         <div class="controls">
             <button id="savePage" class="btn btn-info">Submit</button>
