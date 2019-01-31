@@ -12,6 +12,9 @@ type Page struct {
 }
 
 func (self *Page) Unmarshal() (string, error) {
+	if "" == self.Data {
+		return "", nil
+	}
 	wrapper := make(map[string]string)
 	err := json.Unmarshal([]byte(self.Data), &wrapper)
 	return wrapper["content"], err
