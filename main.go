@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 )
 
 const (
-	DEFAULT_PORT       = 1337
-	DEFAULT_PASSPHRASE = ""
+	DEFAULT_PORT              = 1337
+	DEFAULT_PASSPHRASE        = ""
+	PROJECT            string = "CodeZombie"
+	VERSION            string = "0.1.1"
 )
 
 var (
@@ -25,10 +28,17 @@ var (
 )
 
 func init() {
+	var print_version bool = false
 	flag.IntVar(&PORT, "p", DEFAULT_PORT, "Server port")
 	flag.StringVar(&DB_FILE, "db", DEFAULT_DB_FILE, "Database file")
 	flag.StringVar(&PASSPHRASE, "e", DEFAULT_PASSPHRASE, "Passphrase for encryption")
+	flag.BoolVar(&print_version, "V", false, "Print version and exit")
 	flag.Parse()
+
+	if print_version {
+		fmt.Println(PROJECT, VERSION)
+		os.Exit(0)
+	}
 }
 
 func main() {
@@ -62,6 +72,15 @@ func main() {
 	//.end
 
 	router.Use(LoggingMiddleWare, SetHeadersMiddleWare, CORSMiddleWare)
+
+	logger.Infof("%v-%v", PROJECT, VERSION)
+	logger.Debug("GOOS: ", runtime.GOOS)
+	logger.Debug("CPUS: ", runtime.NumCPU())
+	logger.Debug("PID: ", os.Getpid())
+	logger.Debug("Go Version: ", runtime.Version())
+	logger.Debug("Go Arch: ", runtime.GOARCH)
+	logger.Debug("Go Compiler: ", runtime.Compiler)
+	logger.Debug("NumGoroutine: ", runtime.NumGoroutine())
 
 	logger.Infof("Magic happens on port %v...", PORT)
 	err = http.ListenAndServe(fmt.Sprintf(":%v", PORT), router)
