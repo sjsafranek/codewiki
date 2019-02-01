@@ -25,6 +25,7 @@ var (
 	logger            = ligneous.NewLogger()
 	PASSPHRASE string = DEFAULT_PASSPHRASE
 	PORT       int    = DEFAULT_PORT
+	CLI        bool   = false
 )
 
 func init() {
@@ -32,6 +33,7 @@ func init() {
 	flag.IntVar(&PORT, "p", DEFAULT_PORT, "Server port")
 	flag.StringVar(&DB_FILE, "db", DEFAULT_DB_FILE, "Database file")
 	flag.StringVar(&PASSPHRASE, "e", DEFAULT_PASSPHRASE, "Passphrase for encryption")
+	flag.BoolVar(&CLI, "cli", false, "Open repl environment")
 	flag.BoolVar(&print_version, "V", false, "Print version and exit")
 	flag.Parse()
 
@@ -39,12 +41,10 @@ func init() {
 		fmt.Println(PROJECT, VERSION)
 		os.Exit(0)
 	}
+
 }
 
 func main() {
-	var err error
-	router := mux.NewRouter()
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	db, err := NewDatabase(DB_FILE, PASSPHRASE)
 	if nil != err {
@@ -66,8 +66,17 @@ func main() {
 		os.Exit(0)
 	}()
 
+	if CLI {
+		client(db)
+		db.Close()
+		os.Exit(0)
+	}
+
 	// wiki engine
 	wiki := &WikiEngine{db: db}
+
+	router := mux.NewRouter()
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	router.PathPrefix("/").Handler(wiki)
 	//.end
 
